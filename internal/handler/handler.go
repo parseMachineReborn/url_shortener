@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/parseMachineReborn/url_shortener/internal/repository"
+	"github.com/parseMachineReborn/url_shortener/internal/apperror"
 	"github.com/parseMachineReborn/url_shortener/internal/service"
 )
 
@@ -36,7 +36,7 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := h.s.Shorten(input.Address)
+	res := h.s.Shorten(r.Context(), input.Address)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -49,8 +49,8 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 func (h *handler) GetURL(w http.ResponseWriter, r *http.Request) {
 	url := r.PathValue("shortURL")
 
-	if _, err := h.s.GetURL(url); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+	if _, err := h.s.GetURL(r.Context(), url); err != nil {
+		if errors.Is(err, apperror.ErrNotFound) {
 			http.Error(w, "URL не найден", http.StatusNotFound)
 			return
 		}
@@ -63,12 +63,16 @@ func (h *handler) GetURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
-	storage := h.s.GetAll()
+	storage, err := h.s.GetAll(r.Context())
+
+	if err != nil {
+		http.Error(w, "Ошибка при получении списка сохраненных укороченных URL", http.StatusInternalServerError)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(storage); err != nil {
-		http.Error(w, "Ошибка получения списка всех сохраненных укороченных URL", http.StatusInternalServerError)
+		http.Error(w, "Ошибка при маршаллинге списка сохраненных укороченных URL", http.StatusInternalServerError)
 		return
 	}
 }
@@ -76,8 +80,8 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *handler) Delete(w http.ResponseWriter, r *http.Request) {
 	shortURL := r.PathValue("shortURL")
 
-	if err := h.s.Delete(shortURL); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
+	if err := h.s.Delete(r.Context(), shortURL); err != nil {
+		if errors.Is(err, apperror.ErrNotFound) {
 			http.Error(w, "Не найдено элемента с таким ключом(shortURL)", http.StatusNotFound)
 			return
 		}

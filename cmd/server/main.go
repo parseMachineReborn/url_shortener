@@ -3,24 +3,29 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os/signal"
 	"syscall"
-	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/parseMachineReborn/url_shortener/internal/config"
 	"github.com/parseMachineReborn/url_shortener/internal/handler"
-	"github.com/parseMachineReborn/url_shortener/internal/repository"
+	"github.com/parseMachineReborn/url_shortener/internal/repository/postgres"
 	"github.com/parseMachineReborn/url_shortener/internal/service"
 )
 
-const shutDownPeriod = 15 * time.Second
-
 func main() {
+	config := config.NewConfig()
+
+	pool := connectDB(config.DBConnectionString)
+	defer pool.Close()
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	repository := repository.NewDefaultRepository()
+	repository := postgres.NewPostgresRepository(pool)
 	service := service.NewURLService(repository)
 	handler := handler.NewHandler(service)
 
@@ -28,11 +33,11 @@ func main() {
 	handler.RegisterRoutes(mux)
 
 	server := &http.Server{
-		Addr:         ":8080",
+		Addr:         config.Port,
 		Handler:      mux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  config.ReadWriteTimeout,
+		WriteTimeout: config.ReadWriteTimeout,
+		IdleTimeout:  config.IdleTimeout,
 	}
 
 	go func() {
@@ -46,7 +51,7 @@ func main() {
 
 	<-ctx.Done()
 
-	shutDownCtx, cancelFunc := context.WithTimeout(context.Background(), shutDownPeriod)
+	shutDownCtx, cancelFunc := context.WithTimeout(context.Background(), config.ShutDownPeriod)
 	defer cancelFunc()
 
 	err := server.Shutdown(shutDownCtx)
@@ -55,4 +60,20 @@ func main() {
 	}
 
 	log.Println("Произошло мягкое завершение сервера")
+}
+
+func connectDB(connStr string) *pgxpool.Pool {
+	pool, err := pgxpool.New(context.Background(), connStr)
+
+	if err != nil {
+		log.Fatal("Ошибка при попытке создать пул подключений к БД")
+	}
+
+	if err := pool.Ping(context.Background()); err != nil {
+		log.Fatal("Нет ответа от БД")
+	}
+
+	fmt.Println("БД подключена")
+
+	return pool
 }
