@@ -18,25 +18,46 @@ func NewRepository(pool *pgxpool.Pool) *repository {
 	}
 }
 
-func (r *repository) Add(ctx context.Context, shortenURL string, url *model.URL) error {
+func (r *repository) Add(ctx context.Context, shortURL string, url *model.URL, userId int) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
 	sql := `
 	INSERT INTO url (short_url, addr, redirect_count, creation_date)
 	VALUES ($1, $2, $3, $4)
 	ON CONFLICT (short_url) DO NOTHING;
 	`
+	_, err = tx.Exec(ctx, sql, shortURL, url.Addr, url.RedirectCount, url.CreationDate)
 
-	_, err := r.pool.Exec(ctx, sql, shortenURL, url.Addr, url.RedirectCount, url.CreationDate)
+	if err != nil {
+		return err
+	}
 
-	return err
+	sql = `
+	INSERT INTO user_urls (user_id, short_url)
+	VALUES($1, $2)
+	ON CONFLICT (user_id, short_url) DO NOTHING
+	`
+
+	_, err = tx.Exec(ctx, sql, userId, shortURL)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
-func (r *repository) Get(ctx context.Context, shortURL string) (*model.URL, error) {
+func (r *repository) Get(ctx context.Context, shortURL string, userId int) (*model.URL, error) {
 	sql := `
 	SELECT addr, redirect_count, creation_date
-	FROM url
-	WHERE short_url = $1
+	FROM url u
+	INNER JOIN user_urls uu ON u.short_url = uu.short_url
+	WHERE uu.user_id = $1 AND uu.short_url = $2
 	`
-	row := r.pool.QueryRow(ctx, sql, shortURL)
+	row := r.pool.QueryRow(ctx, sql, userId, shortURL)
 
 	var url model.URL
 	if err := row.Scan(
@@ -50,13 +71,15 @@ func (r *repository) Get(ctx context.Context, shortURL string) (*model.URL, erro
 	return &url, nil
 }
 
-func (r *repository) GetAll(ctx context.Context) (map[string]*model.URL, error) {
+func (r *repository) GetAll(ctx context.Context, userId int) (map[string]*model.URL, error) {
 	sql := `
 	SELECT short_url, addr, redirect_count, creation_date
-	FROM url
+	FROM url u
+	INNER JOIN user_urls uu ON u.short_url = uu.short_url
+	WHERE uu.user_id = $1
 	`
 
-	rows, err := r.pool.Query(ctx, sql)
+	rows, err := r.pool.Query(ctx, sql, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -84,12 +107,12 @@ func (r *repository) GetAll(ctx context.Context) (map[string]*model.URL, error) 
 	return res, nil
 }
 
-func (r *repository) Delete(ctx context.Context, shortURL string) error {
+func (r *repository) Delete(ctx context.Context, shortURL string, userId int) error {
 	sql := `
-	DELETE FROM url WHERE short_url = $1
+	DELETE FROM user_urls WHERE short_url = $1 AND user_id = $2 
 	`
 
-	cmdTag, err := r.pool.Exec(ctx, sql, shortURL)
+	cmdTag, err := r.pool.Exec(ctx, sql, shortURL, userId)
 
 	if err != nil {
 		return err

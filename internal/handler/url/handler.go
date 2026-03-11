@@ -39,7 +39,11 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := h.urlS.Shorten(r.Context(), input.Address)
+	res, err := h.urlS.Shorten(r.Context(), input.Address)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -51,8 +55,9 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) GetURL(w http.ResponseWriter, r *http.Request) {
 	url := r.PathValue("shortURL")
+	originUrl, err := h.urlS.GetURL(r.Context(), url)
 
-	if _, err := h.urlS.GetURL(r.Context(), url); err != nil {
+	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
 			http.Error(w, "URL не найден", http.StatusNotFound)
 			return
@@ -62,7 +67,7 @@ func (h *handler) GetURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, url, http.StatusPermanentRedirect)
+	http.Redirect(w, r, originUrl, http.StatusPermanentRedirect)
 }
 
 func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +75,7 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, "Ошибка при получении списка сохраненных укороченных URL", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -90,5 +96,6 @@ func (h *handler) Delete(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Error(w, "Ошибка при удалении", http.StatusInternalServerError)
+		return
 	}
 }

@@ -12,10 +12,10 @@ import (
 const sliceEnd int = 7
 
 type Repository interface {
-	Add(ctx context.Context, shortenURL string, url *model.URL) error
-	Get(ctx context.Context, shortURL string) (*model.URL, error)
-	GetAll(ctx context.Context) (map[string]*model.URL, error)
-	Delete(ctx context.Context, shortURL string) error
+	Add(ctx context.Context, shortenURL string, url *model.URL, userId int) error
+	Get(ctx context.Context, shortURL string, userId int) (*model.URL, error)
+	GetAll(ctx context.Context, userId int) (map[string]*model.URL, error)
+	Delete(ctx context.Context, shortURL string, userId int) error
 	IncrementRedirectCount(ctx context.Context, shortURL string) error
 }
 
@@ -29,7 +29,7 @@ func NewService(repository Repository) *Service {
 	}
 }
 
-func (s *Service) Shorten(ctx context.Context, url string) string {
+func (s *Service) Shorten(ctx context.Context, url string) (string, error) {
 	urlBytes := []byte(url)
 	hash := md5.Sum(urlBytes)
 	result := fmt.Sprintf("%x", hash)
@@ -41,13 +41,18 @@ func (s *Service) Shorten(ctx context.Context, url string) string {
 	}
 
 	shortURL := result[:sliceEnd]
-	s.repository.Add(ctx, shortURL, &urlModel)
+	userId := int(ctx.Value("user_id").(float64))
+	err := s.repository.Add(ctx, shortURL, &urlModel, userId)
+	if err != nil {
+		return "", err
+	}
 
-	return shortURL
+	return shortURL, nil
 }
 
 func (s *Service) GetURL(ctx context.Context, shortURL string) (string, error) {
-	res, err := s.repository.Get(ctx, shortURL)
+	userId := int(ctx.Value("user_id").(float64))
+	res, err := s.repository.Get(ctx, shortURL, userId)
 
 	if err != nil {
 		return "", err
@@ -62,9 +67,11 @@ func (s *Service) GetURL(ctx context.Context, shortURL string) (string, error) {
 }
 
 func (s *Service) GetAll(ctx context.Context) (map[string]*model.URL, error) {
-	return s.repository.GetAll(ctx)
+	userId := int(ctx.Value("user_id").(float64))
+	return s.repository.GetAll(ctx, userId)
 }
 
 func (s *Service) Delete(ctx context.Context, shortURL string) error {
-	return s.repository.Delete(ctx, shortURL)
+	userId := int(ctx.Value("user_id").(float64))
+	return s.repository.Delete(ctx, shortURL, userId)
 }
