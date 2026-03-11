@@ -1,4 +1,4 @@
-package service
+package url
 
 import (
 	"context"
@@ -19,17 +19,17 @@ type Repository interface {
 	IncrementRedirectCount(ctx context.Context, shortURL string) error
 }
 
-type URLService struct {
+type Service struct {
 	repository Repository
 }
 
-func NewURLService(repository Repository) *URLService {
-	return &URLService{
+func NewService(repository Repository) *Service {
+	return &Service{
 		repository: repository,
 	}
 }
 
-func (s *URLService) Shorten(ctx context.Context, url string) string {
+func (s *Service) Shorten(ctx context.Context, url string) string {
 	urlBytes := []byte(url)
 	hash := md5.Sum(urlBytes)
 	result := fmt.Sprintf("%x", hash)
@@ -46,7 +46,7 @@ func (s *URLService) Shorten(ctx context.Context, url string) string {
 	return shortURL
 }
 
-func (s *URLService) GetURL(ctx context.Context, shortURL string) (string, error) {
+func (s *Service) GetURL(ctx context.Context, shortURL string) (string, error) {
 	res, err := s.repository.Get(ctx, shortURL)
 
 	if err != nil {
@@ -61,10 +61,10 @@ func (s *URLService) GetURL(ctx context.Context, shortURL string) (string, error
 	return res.Addr, err
 }
 
-func (s *URLService) GetAll(ctx context.Context) (map[string]*model.URL, error) {
+func (s *Service) GetAll(ctx context.Context) (map[string]*model.URL, error) {
 	return s.repository.GetAll(ctx)
 }
 
-func (s *URLService) Delete(ctx context.Context, shortURL string) error {
+func (s *Service) Delete(ctx context.Context, shortURL string) error {
 	return s.repository.Delete(ctx, shortURL)
 }

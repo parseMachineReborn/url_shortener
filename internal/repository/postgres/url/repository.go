@@ -1,4 +1,4 @@
-package postgres
+package url
 
 import (
 	"context"
@@ -12,7 +12,7 @@ type repository struct {
 	pool *pgxpool.Pool
 }
 
-func NewPostgresRepository(pool *pgxpool.Pool) *repository {
+func NewRepository(pool *pgxpool.Pool) *repository {
 	return &repository{
 		pool: pool,
 	}

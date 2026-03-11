@@ -11,9 +11,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/parseMachineReborn/url_shortener/internal/config"
-	"github.com/parseMachineReborn/url_shortener/internal/handler"
-	"github.com/parseMachineReborn/url_shortener/internal/repository/postgres"
-	"github.com/parseMachineReborn/url_shortener/internal/service"
+	"github.com/parseMachineReborn/url_shortener/internal/handler/url"
+	"github.com/parseMachineReborn/url_shortener/internal/handler/user"
+	urlRepo "github.com/parseMachineReborn/url_shortener/internal/repository/postgres/url"
+	userRepo "github.com/parseMachineReborn/url_shortener/internal/repository/postgres/user"
+	urlSrv "github.com/parseMachineReborn/url_shortener/internal/service/url"
+	userSrv "github.com/parseMachineReborn/url_shortener/internal/service/user"
 )
 
 func main() {
@@ -25,12 +28,18 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	repository := postgres.NewPostgresRepository(pool)
-	service := service.NewURLService(repository)
-	handler := handler.NewHandler(service)
+	urlRepository := urlRepo.NewRepository(pool)
+	userRepository := userRepo.NewRepository(pool)
+
+	urlService := urlSrv.NewService(urlRepository)
+	userService := userSrv.NewService(userRepository)
+
+	urlHandler := url.NewHandler(urlService, config.SecretKey)
+	userHandler := user.NewHandler(userService, config.SecretKey)
 
 	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux)
+	urlHandler.RegisterRoutes(mux)
+	userHandler.RegisterRoutes(mux)
 
 	server := &http.Server{
 		Addr:         config.Port,

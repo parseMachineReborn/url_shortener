@@ -1,4 +1,4 @@
-package handler
+package url
 
 import (
 	"encoding/json"
@@ -6,24 +6,27 @@ import (
 	"net/http"
 
 	"github.com/parseMachineReborn/url_shortener/internal/apperror"
-	"github.com/parseMachineReborn/url_shortener/internal/service"
+	"github.com/parseMachineReborn/url_shortener/internal/middleware"
+	"github.com/parseMachineReborn/url_shortener/internal/service/url"
 )
 
 type handler struct {
-	s *service.URLService
+	urlS      *url.Service
+	secretKey string
 }
 
-func NewHandler(s *service.URLService) *handler {
+func NewHandler(urlS *url.Service, secretKey string) *handler {
 	return &handler{
-		s: s,
+		urlS:      urlS,
+		secretKey: secretKey,
 	}
 }
 
 func (h *handler) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /shorten", h.Shorten)
-	mux.HandleFunc("GET /geturl/{shortURL}", h.GetURL)
-	mux.HandleFunc("GET /getAll", h.GetAll)
-	mux.HandleFunc("DELETE /delete/{shortURL}", h.Delete)
+	mux.Handle("POST /shorten", middleware.AuthenticationMiddleware(http.HandlerFunc(h.Shorten), h.secretKey))
+	mux.Handle("GET /geturl/{shortURL}", middleware.AuthenticationMiddleware(http.HandlerFunc(h.GetURL), h.secretKey))
+	mux.Handle("GET /getAll", middleware.AuthenticationMiddleware(http.HandlerFunc(h.GetAll), h.secretKey))
+	mux.Handle("DELETE /delete/{shortURL}", middleware.AuthenticationMiddleware(http.HandlerFunc(h.Delete), h.secretKey))
 }
 
 func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +39,7 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := h.s.Shorten(r.Context(), input.Address)
+	res := h.urlS.Shorten(r.Context(), input.Address)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -49,7 +52,7 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 func (h *handler) GetURL(w http.ResponseWriter, r *http.Request) {
 	url := r.PathValue("shortURL")
 
-	if _, err := h.s.GetURL(r.Context(), url); err != nil {
+	if _, err := h.urlS.GetURL(r.Context(), url); err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
 			http.Error(w, "URL не найден", http.StatusNotFound)
 			return
@@ -63,7 +66,7 @@ func (h *handler) GetURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
-	storage, err := h.s.GetAll(r.Context())
+	storage, err := h.urlS.GetAll(r.Context())
 
 	if err != nil {
 		http.Error(w, "Ошибка при получении списка сохраненных укороченных URL", http.StatusInternalServerError)
@@ -80,7 +83,7 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 func (h *handler) Delete(w http.ResponseWriter, r *http.Request) {
 	shortURL := r.PathValue("shortURL")
 
-	if err := h.s.Delete(r.Context(), shortURL); err != nil {
+	if err := h.urlS.Delete(r.Context(), shortURL); err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
 			http.Error(w, "Не найдено элемента с таким ключом(shortURL)", http.StatusNotFound)
 			return

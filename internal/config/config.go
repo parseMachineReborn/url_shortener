@@ -15,6 +15,7 @@ type config struct {
 	ReadWriteTimeout   time.Duration
 	IdleTimeout        time.Duration
 	ShutDownPeriod     time.Duration
+	SecretKey          string
 }
 
 func NewConfig() *config {
@@ -44,11 +45,14 @@ func NewConfig() *config {
 	}
 	idleTimeoutDuration := time.Duration(idleTimeout) * time.Second
 
+	secretKey := os.Getenv("JWT_SECRET_KEY")
+
 	return &config{
 		DBConnectionString: connStr,
 		Port:               port,
 		ReadWriteTimeout:   rwTimeoutDuration,
 		IdleTimeout:        idleTimeoutDuration,
 		ShutDownPeriod:     shutDownPeriodDuration,
+		SecretKey:          secretKey,
 	}
 }
