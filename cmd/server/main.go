@@ -66,9 +66,8 @@ func main() {
 	err := server.Shutdown(shutDownCtx)
 	if err != nil {
 		log.Println("Произошла ошибка при мягком завершении.")
+		server.Close()
 	}
-
-	log.Println("Произошло мягкое завершение сервера")
 }
 
 func connectDB(connStr string) *pgxpool.Pool {

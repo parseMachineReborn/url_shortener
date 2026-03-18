@@ -7,6 +7,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/joho/godotenv v1.5.1
+	github.com/parseMachineReborn/worker_pool v0.0.0-20260316082732-342620706fd9
 	golang.org/x/crypto v0.48.0
 )
 

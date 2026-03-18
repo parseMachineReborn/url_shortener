@@ -127,7 +127,7 @@ func (r *repository) Delete(ctx context.Context, shortURL string, userId int) er
 
 func (r *repository) IncrementRedirectCount(ctx context.Context, shortURL string) error {
 	sql := `
-	UPDATE url SET redirect_count = redirect_count + 1 WHERE short_url = $1
+	UPDATE url SET redirect_count = redirect_count + 1 WHERE short_url = $1 
 	`
 
 	cmdTag, err := r.pool.Exec(ctx, sql, shortURL)

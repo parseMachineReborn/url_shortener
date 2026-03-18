@@ -29,7 +29,7 @@ func NewService(repository Repository) *Service {
 	}
 }
 
-func (s *Service) Shorten(ctx context.Context, url string) (string, error) {
+func (s *Service) Shorten(ctx context.Context, url string, userId int) (string, error) {
 	urlBytes := []byte(url)
 	hash := md5.Sum(urlBytes)
 	result := fmt.Sprintf("%x", hash)
@@ -41,7 +41,6 @@ func (s *Service) Shorten(ctx context.Context, url string) (string, error) {
 	}
 
 	shortURL := result[:sliceEnd]
-	userId := int(ctx.Value("user_id").(float64))
 	err := s.repository.Add(ctx, shortURL, &urlModel, userId)
 	if err != nil {
 		return "", err
@@ -50,8 +49,7 @@ func (s *Service) Shorten(ctx context.Context, url string) (string, error) {
 	return shortURL, nil
 }
 
-func (s *Service) GetURL(ctx context.Context, shortURL string) (string, error) {
-	userId := int(ctx.Value("user_id").(float64))
+func (s *Service) GetURL(ctx context.Context, shortURL string, userId int) (string, error) {
 	res, err := s.repository.Get(ctx, shortURL, userId)
 
 	if err != nil {
@@ -66,12 +64,10 @@ func (s *Service) GetURL(ctx context.Context, shortURL string) (string, error) {
 	return res.Addr, err
 }
 
-func (s *Service) GetAll(ctx context.Context) (map[string]*model.URL, error) {
-	userId := int(ctx.Value("user_id").(float64))
+func (s *Service) GetAll(ctx context.Context, userId int) (map[string]*model.URL, error) {
 	return s.repository.GetAll(ctx, userId)
 }
 
-func (s *Service) Delete(ctx context.Context, shortURL string) error {
-	userId := int(ctx.Value("user_id").(float64))
+func (s *Service) Delete(ctx context.Context, shortURL string, userId int) error {
 	return s.repository.Delete(ctx, shortURL, userId)
 }

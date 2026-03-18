@@ -39,7 +39,8 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.urlS.Shorten(r.Context(), input.Address)
+	userId := int(r.Context().Value("user_id").(float64))
+	res, err := h.urlS.Shorten(r.Context(), input.Address, userId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -54,8 +55,9 @@ func (h *handler) Shorten(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) GetURL(w http.ResponseWriter, r *http.Request) {
+	userId := int(r.Context().Value("user_id").(float64))
 	url := r.PathValue("shortURL")
-	originUrl, err := h.urlS.GetURL(r.Context(), url)
+	originUrl, err := h.urlS.GetURL(r.Context(), url, userId)
 
 	if err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
@@ -71,7 +73,8 @@ func (h *handler) GetURL(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
-	storage, err := h.urlS.GetAll(r.Context())
+	userId := int(r.Context().Value("user_id").(float64))
+	storage, err := h.urlS.GetAll(r.Context(), userId)
 
 	if err != nil {
 		http.Error(w, "Ошибка при получении списка сохраненных укороченных URL", http.StatusInternalServerError)
@@ -87,9 +90,10 @@ func (h *handler) GetAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) Delete(w http.ResponseWriter, r *http.Request) {
+	userId := int(r.Context().Value("user_id").(float64))
 	shortURL := r.PathValue("shortURL")
 
-	if err := h.urlS.Delete(r.Context(), shortURL); err != nil {
+	if err := h.urlS.Delete(r.Context(), shortURL, userId); err != nil {
 		if errors.Is(err, apperror.ErrNotFound) {
 			http.Error(w, "Не найдено элемента с таким ключом(shortURL)", http.StatusNotFound)
 			return
